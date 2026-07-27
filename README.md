@@ -77,7 +77,7 @@ If it is not possible to compile manually
 
 
 
-2. Model Conversion to FP16 Format (It is highly recommended to follow the comments and operation steps in the official yolo11.cpp source file of NCNN. Otherwise, it will not be possible to directly match and apply the official source file!!!).If you use the one-click conversion tool provided by the Ultralytics website to convert the file format to NCNN, you will need to modify the official yolo11.cpp source code of NCNN yourself. Moreover, this method cannot achieve the optimization benefits of NCNN.You can directly operate by opening the commented content in the official yolo11.cpp file: https://github.com/Tencent/ncnn/blob/master/examples/yolo11.cpp.By default, param and.bin files in FP16 format are generated.
+二、Model Conversion to FP16 Format (It is highly recommended to follow the comments and operation steps in the official yolo11.cpp source file of NCNN. Otherwise, it will not be possible to directly match and apply the official source file!!!).If you use the one-click conversion tool provided by the Ultralytics website to convert the file format to NCNN, you will need to modify the official yolo11.cpp source code of NCNN yourself. Moreover, this method cannot achieve the optimization benefits of NCNN.You can directly operate by opening the commented content in the official yolo11.cpp file: https://github.com/Tencent/ncnn/blob/master/examples/yolo11.cpp.By default, param and.bin files in FP16 format are generated.
 ---------------------------------------
 1、Set up the environment (using PC Anaconda Prompt terminal)
 ---------------------------------------
