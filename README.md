@@ -1,7 +1,7 @@
 # ncnn-arm64-yolo11n
-ubuntu虚拟机搭建ncnn环境并交叉编译自己训练的YOLO11转FP16或INT8类型的.param和.bin文件部署到Orangepi Zero 2 1G开发板上识别图片笔记
+Set up the NCNN environment in the Ubuntu virtual machine and cross-compile the .param and .bin files of the YOLO11 model trained by yourself into FP16 or INT8 types. Deploy them onto the Orangepi Zero 2 1G development board to recognize images.
 
-ubuntu虚拟机版本：
+Ubuntu virtual machine version：
 ---------------------------------------
 	hkd@hkd-virtual-machine:~/Downloads/ncnn/build-cpu$ lsb_release -a
 	No LSB modules are available.
@@ -10,7 +10,7 @@ ubuntu虚拟机版本：
 	Release:        22.04
 	Codename:       jammy
 
-Orangepi Zero 2版本：
+Orangepi Zero 2version：
 ---------------------------------------
 	orangepi@orangepizero2:~/Downloads/drink_demo$ lsb_release -a
 	No LSB modules are available.
@@ -19,20 +19,20 @@ Orangepi Zero 2版本：
 	Release:        22.04
 	Codename:       jammy
 
-一、ubuntu虚拟机环境搭建(根据Orangepi Zero 2官方用户手册进行搭建)
+一、Setup of Ubuntu virtual machine environment (performed according to the official user manual of Orangepi Zero 2)
 ---------------------------------------
-1、下载源码：
+1、Download the source code：
 ---------------------------------------
 	git clone https://github.com/Tencent/ncnn.git
 
-2、安装依赖包：
+2、Install the required packages：
 ---------------------------------------
 	sudo apt update
 	sudo apt install build-essentialgitcmake libprotobuf-dev protobuf-compiler libopencv-dev
 
-3、注释屏蔽benchncnn相关模型测试：
+3、Disable the benchncnn-related model tests in the annotations：
 ---------------------------------------
-看个人喜好进行是否屏蔽，由于官方手册下载的ncnn不是最新的版本，官方只注释屏蔽vgg16这个模型测
+It is up to personal preference to decide whether to block it. Since the ncnn file downloaded from the official manual is not the latest version, the official only commented on blocking the vgg16 model for testing.
 
 	//benchmark("alexnet", ncnn::Mat(227, 227, 3), opt, alexnet_param_data);
 	//benchmark("vgg16", ncnn::Mat(224, 224, 3), opt, vgg16_param_data);
@@ -41,65 +41,62 @@ Orangepi Zero 2版本：
 	//benchmark("resnet50_int8", ncnn::Mat(224, 224, 3), opt, resnet50_int8_param_data);
 
 
-4、编译环境：
+4、Compilation environment：
 ---------------------------------------
 	mkdir build
 	cd build
-在cmake之前请确保是否拥有orangepi zero 2交叉编译工具，
-我使用的是gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu，
-并在~/.bashrc中添加环境变量指令(需要根据自己的路径修改)：
+Before using CMake, please make sure that you have the cross-compilation tools for the OrangePi Zero 2.
+The version of gcc I'm using is gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.
+And add the environment variable instructions in ~/.bashrc (please modify according to your own path):
 export PATH=/home/$(whoami)/Downloads/orangepi-build-next/toolchains/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu/bin:$PATH
 
 	cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/aarch64-linux-gnu.toolchain.cmake -DNCNN_SIMPLEOCV=ON -DNCNN_BUILD_EXAMPLES=ON
 	make -j$(nproc)
 
-5、测试神经网络的推理性能：
+5、Test the inference performance of the neural network：
 ---------------------------------------
-详细操作可执行查看Orangepi Zero 2官方用户手册
-通过SCP指令将ubuntu虚拟机上整个benchmark传输到开发板上进行测试
+Detailed operations can be carried out by viewing the official user manual of Orangepi Zero 2.
+Transfer the entire benchmark from the Ubuntu virtual machine to the development board via the SCP command for testing.
 
 
-6、建议在ncnn文件夹目录下再创建一个build-x86(名字可自定义)文件夹
+6、It is recommended to create another folder named "build-x86" (you can customize the name) under the "ncnn" folder directory.
 ---------------------------------------
-由于后期打算把模型转为int8类型的.param和.bin文件，
-需要在PC或者ubuntu虚拟机使用ncnn2table和ncnn2int8可执行文件，
-而前面创建的build文件夹是专门用于arm64架构的，
-并没有加入-DNCNN_BUILD_TOOLS参数，导致在build文件夹下没有生成tools文件夹，
-而且也不太可能在开发板上进行编译,
-也不需要添加指定编译工具默认就是x86编译工具
+Since we plan to convert the model to int8 type .param and .bin files in the later stage,
+The ncnn2table and ncnn2int8 executable files need to be used on a PC or an Ubuntu virtual machine.
+The previously created "build" folder is specifically designed for the arm64 architecture.
+The parameter -DNCNN_BUILD_TOOLS was not added, which resulted in the absence of the "tools" folder being generated under the "build" folder.
+And it is also unlikely to be compiled on the development board.
+There is no need to add any specific compilation tools. The default one is the x86 compilation tool.
 
 	mkdir build-x86
 	cd build-x86
 	cmake -DNCNN_SIMPLEOCV=ON -DNCNN_BUILD_TOOLS=ON
 	make -j$(nproc)
-搭建完成后可以进入/build-x86/tools/quantize中查看是否又ncnn2table和ncnn2int8可执行文件，
-若没有可以手动编译即可
+After the setup is completed, you can go to /build-x86/tools/quantize to check if there are executable files named "ncnn2table" and "ncnn2int8".
+If it is not possible to compile manually
 
 
 
-二、模型转换FP16格式(强烈推荐使用NCNN官方yolo11.cpp源文件里面的注释操作步骤，不然无法直接匹配并套用官方的源文件！！！)
-若使用ultralytics官网的一键转ncnn文件格式工具，则需要你去自主修改NCNN官方yolo11.cpp源文件代码，同时也无法发挥到ncnn的优化！
-可直接打开官方yolo11.cpp文件中注释内容进行操作：https://github.com/Tencent/ncnn/blob/master/examples/yolo11.cpp
-默认是生成FP16格式大小的.param和.bin文件
+2. Model Conversion to FP16 Format (It is highly recommended to follow the comments and operation steps in the official yolo11.cpp source file of NCNN. Otherwise, it will not be possible to directly match and apply the official source file!!!).If you use the one-click conversion tool provided by the Ultralytics website to convert the file format to NCNN, you will need to modify the official yolo11.cpp source code of NCNN yourself. Moreover, this method cannot achieve the optimization benefits of NCNN.You can directly operate by opening the commented content in the official yolo11.cpp file: https://github.com/Tencent/ncnn/blob/master/examples/yolo11.cpp.By default, param and.bin files in FP16 format are generated.
 ---------------------------------------
-1、搭建环境(PC Anaconda Prompt终端操作)
+1、Set up the environment (using PC Anaconda Prompt terminal)
 ---------------------------------------
-	conda activate (环境名称)
+	conda activate (Environmental Name)
 	pip3 install -U ultralytics pnnx ncnn
 
-2、export yolo11 torchscript(PC Anaconda Prompt终端操作)
+2、export yolo11 torchscript(PC Anaconda Prompt terminal operation)
 ---------------------------------------
-由于我的数据集并不是官网的数据集，而是我自己训练的支持识别8个类型数量的数据集
-在PC的Anaconda Prompt终端通过cd进入自己自定义存放best.pt的模型文件夹，并把best.pt重命名为yolo11n.pt
+Since my dataset is not from the official source, but rather a dataset that I trained myself to recognize 8 types of quantities.
+In the Anaconda Prompt terminal of the PC, use the command `cd` to enter the folder where you have customized the model file named `best.pt`, and rename `best.pt` to `yolo11n.pt`.
 
 	yolo export model=yolo11n.pt format=torchscript
 
-3、convert torchscript with static shape(PC Anaconda Prompt终端操作)
+3、convert torchscript with static shape(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 
 	pnnx yolo11n.torchscript
 
-4、modify yolo11n_pnnx.py for dynamic shape inference(PC Anaconda Prompt终端操作)
+4、modify yolo11n_pnnx.py for dynamic shape inference(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 	//		A. modify reshape to support dynamic image sizes
 	//      B. permute tensor before concat and adjust concat axis
@@ -116,11 +113,11 @@ export PATH=/home/$(whoami)/Downloads/orangepi-build-next/toolchains/gcc-arm-11.
 	//          v_237 = v_234.view(1, 144, -1).transpose(1, 2)
 	//          v_238 = torch.cat((v_235, v_236, v_237), dim=1)
 	//          return v_238
-对应自己的yolo11n_pnnx.py的内容进行修改，下面是我针对自己的生成的yolo11n_pnnx.py进行修改，
-通过AI辅助查询才发现官方的yolo11n_pnnx.py里面的处理方式和我PC生成yolo11n_pnnx.py方式不太一样，
-而且官方在这部分实例操作进行了简化，其实是需要把修改后的v_238 = torch.cat((v_235, v_236, v_237), dim=1)代码，
-把下面所有代码直接删掉或者注释，然后在添加return v_238代码。
-但是最终的效果都是一致，像我这种初学者不太懂得都是通过AI查询来解决的，如果有问题，可通过找AI解决
+Modify the content of your own yolo11n_pnnx.py. Below is the modification I made to the yolo11n_pnnx.py that I generated myself.
+It was only through AI-assisted query that I discovered that the processing method in the official yolo11n_pnnx.py was different from the way my PC generated yolo11n_pnnx.py.
+Moreover, the official has simplified the operation in this part. In fact, the modified code v_238 = torch.cat((v_235, v_236, v_237), dim=1) needs to be implemented.
+Delete or comment out all the following codes, and then add the "return v_238" code.
+However, the final results are all the same. For beginners like me who don't have much knowledge, we usually solve the problems by querying through AI. If there are any issues, we can solve them by contacting AI.
 		
 		v_187 = self.model_22_cv2_conv(v_186)
         v_188 = self.pnnx_unique_59(v_187)
@@ -181,10 +178,10 @@ export PATH=/home/$(whoami)/Downloads/orangepi-build-next/toolchains/gcc-arm-11.
         # v_238 = v_237.reshape(1, 8, 400)
         v_238 = v_237.flatten(2)
         v_239 = torch.cat((v_218, v_228, v_238), dim=-1)
-        # === 以下为修改部分 ===
-        # 将 64维Box特征 (v_208) 和 8维Cls特征 (v_239) 拼接为 [1, 72, 8400]
+        # === The following is the revised part.===
+        # Concatenate the 64-dimensional Box features (v_208) and the 8-dimensional Cls features (v_239) to form [1, 72, 8400]
         v_raw = torch.cat((v_208, v_239), dim=1)
-        # 转置为 [1, 8400, 72]
+        # Transposed to [1, 8400, 72]
         v_out = v_raw.transpose(1, 2)
         return v_out
 ---------------------------------------
@@ -241,45 +238,45 @@ export PATH=/home/$(whoami)/Downloads/orangepi-build-next/toolchains/gcc-arm-11.
         v_106 = v_105.reshape(1, 128, v_95.size(2), v_95.size(3))
         v_107 = v_99.reshape(1, 128, v_95.size(2), v_95.size(3))
 
-5、re-export yolo11 torchscript(PC Anaconda Prompt终端操作)
+5、re-export yolo11 torchscript(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 	python -c "import yolo11n_pnnx; yolo11n_pnnx.export_torchscript()"
 
-6、convert new torchscript with dynamic shape(PC Anaconda Prompt终端操作)
+6、convert new torchscript with dynamic shape(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 	pnnx yolo11n_pnnx.py.pt inputshape=[1,3,640,640] inputshape2=[1,3,320,320]
 
-7、now you get ncnn model files(PC Anaconda Prompt终端操作)
+7、now you get ncnn model files(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 	mv yolo11n_pnnx.py.ncnn.param yolo11n.ncnn.param
 	mv yolo11n_pnnx.py.ncnn.bin yolo11n.ncnn.bin
 
-8、在ubuntu虚拟机中修改官方yolo11.cpp源文件(若不是使用YOLO官方的数据集)
+8、Modify the official yolo11.cpp source file in the Ubuntu virtual machine (if not using the official dataset of YOLO)
 ---------------------------------------
-通过打开ncnn/
-可以手动关闭使用vulkan加速，通过AI查询全志H616芯片得知不支持，同时我自己测试了是失败的，
-这里有关这个问题的讨论：https://github.com/Tencent/ncnn/issues/6684，
+By opening ncnn/
+It is possible to manually disable the use of Vulkan acceleration. According to the AI query of the Zhi H616 chip, it is known that it does not support this feature. Additionally, I have personally tested it and found that it failed.
+Here is the discussion about this issue: https://github.com/Tencent/ncnn/issues/6684
 	
 	yolo11.opt.use_vulkan_compute = false;
-修改目标尺寸大小，因为上面设置了动态调整图像输入大小，目标尺寸越小，计算量就越少
+Modify the target size, as dynamic adjustment of the image input size has been set above. The smaller the target size, the less computational effort is required.
 
-	const int target_size = (640或416或320);
-修改识别类型名称，可以根据数据集的yaml文件的names进行匹配修改
+	const int target_size = (640 or 416 or 320);
+Modify the type name of the identification. It can be updated by matching and modifying according to the "names" in the yaml file of the dataset.
 
 	static const char* class_names[] = {}
 
-9、编译YOLO11.cpp源文件
+9、Compile the source file YOLO11.cpp
 ---------------------------------------
-在ncnn/build路径下make编译，即可在examples文件夹中自动覆盖为最新的yolo11可执行文件
+Make the compilation in the "ncnn/build" directory, and it will automatically overwrite the existing "yolo11" executable file in the "examples" folder with the latest version.
 
 	make yolo11
 
-10、部署开发板上测试
+10、Conduct tests on the development board
 ---------------------------------------
-确保PC端传输.param和.bin与ubuntu虚拟机传输的yolo11可执行文件到开发板自定义同一路径下，
-同时该路径需要一张图像作为yolo11可执行文件参数作为输入
-已下是通过time指令来简单多次测试观察单次运行，分别以640x640、416x416、320x320的图像输入
-平均需要多少时间：
+Make sure that the .param and .bin files transferred from the PC end and the yolo11 executable file transferred from the Ubuntu virtual machine are placed in the same directory on the development board.
+At the same time, this path requires an image as an input parameter for the yolo11 executable file.
+The following is a simple multiple test observation of a single run using the "time" command. The input images are respectively 640x640, 416x416, and 320x320.
+On average, how much time is required：
 
 	orangepi@orangepizero2:~/Downloads/drink_demo$ time ./yolo11_640f16 640.jpeg
 	3 = 0.96976 at 0.02 324.91 83.14 x 303.49
@@ -318,61 +315,59 @@ export PATH=/home/$(whoami)/Downloads/orangepi-build-next/toolchains/gcc-arm-11.
 	sys     0m0.089s
 
 
-三、模型转换INT8格式(强烈推荐使用NCNN官方yolo11.cpp源文件里面的注释操作步骤，不然无法直接匹配并套用官方的源文件！！！)
-若使用ultralytics官网的一键转ncnn文件格式工具，则需要你去自主修改NCNN官方yolo11.cpp源文件代码，同时也无法发挥到ncnn的优化！
-可直接打开官方yolo11.cpp文件中注释内容进行操作：https://github.com/Tencent/ncnn/blob/master/examples/yolo11.cpp
+三、Model conversion to INT8 format (It is strongly recommended to follow the comments and operation steps in the official yolo11.cpp source file of NCNN. Otherwise, it will not be possible to directly match and apply the official source file!!!).If you use the one-click conversion tool provided by the Ultralytics website to convert the file format to NCNN, you will need to modify the official yolo11.cpp source code of NCNN yourself. Moreover, this method cannot achieve the optimization benefits of NCNN.You can directly operate by opening the commented content in the official yolo11.cpp file: https://github.com/Tencent/ncnn/blob/master/examples/yolo11.cpp
 ！！！
-同时还需要参考ncnn官网量化INT8的工具操作步骤：https://github.com/Tencent/ncnn/blob/master/docs/how-to-use-and-FAQ/quantized-int8-inference.md
+At the same time, it is also necessary to refer to the operation steps of the quantization INT8 tool provided by the ncnn website:https://github.com/Tencent/ncnn/blob/master/docs/how-to-use-and-FAQ/quantized-int8-inference.md
 ！！！
-这个步骤我是重新从.pt类型文件转到FP32类型的.param和.bin文件，再从FP32类型的.param和.bin文件转到int8类型的.param和.bin文件
+This step involves first converting the .pt type file back to the FP32 type .param and .bin files, and then converting them again from the FP32 type .param and .bin files to the int8 type .param and .bin files.
 ---------------------------------------
-1、搭建环境(PC Anaconda Prompt终端操作)
+1、Set up the environment(PC Anaconda Prompt terminal operation)
 ---------------------------------------
-	conda activate (环境名称)
+	conda activate (Environmental Name)
 	pip3 install -U ultralytics pnnx ncnn
 
-2、export yolo11 torchscript(PC Anaconda Prompt终端操作)
+2、export yolo11 torchscript(PC Anaconda Prompt terminal operation)
 ---------------------------------------
-由于我的数据集并不是官网的数据集，而是我自己训练的支持识别8个类型数量的数据集
-在PC的Anaconda Prompt终端通过cd进入自己自定义存放best.pt的模型文件夹，并把best.pt重命名为yolo11n.pt
+Since my dataset is not from the official source, but rather a dataset that I trained myself to recognize 8 types of quantities.
+In the Anaconda Prompt terminal of the PC, use the command `cd` to enter the folder where you have customized the model file named `best.pt`, and rename `best.pt` to `yolo11n.pt`.
 	
 	yolo export model=yolo11n.pt format=torchscript
-3、convert torchscript with static shape(PC Anaconda Prompt终端操作)
+3、convert torchscript with static shape(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 	pnnx yolo11n.torchscript fp16=0
 	
-4、modify yolo11n_pnnx.py for dynamic shape inference(PC Anaconda Prompt终端操作)
+4、modify yolo11n_pnnx.py for dynamic shape inference(PC Anaconda Prompt terminal operation)
 ---------------------------------------
-	以上述操作同理...
+	The above operation is handled in the same way....
 	
-5、re-export yolo11 torchscript(PC Anaconda Prompt终端操作)
+5、re-export yolo11 torchscript(PC Anaconda Prompt terminal operation)
 ---------------------------------------
-	以上述操作同理...
+	The above operation is handled in the same way....
 	
-6、convert new torchscript with dynamic shape(PC Anaconda Prompt终端操作)
+6、convert new torchscript with dynamic shape(PC Anaconda Prompt terminal operation)
 ---------------------------------------
 	pnnx yolo11n_pnnx.py.pt inputshape=[1,3,640,640] inputshape2=[1,3,320,320] fp16=0
 
-7、Optimize model(可跳过使用官方quantized-int8-inference.md)
+7、Optimize model(The official "quantized-int8-inference.md" can be skipped.)
 ---------------------------------------
 NOTE: If your model is converted via pnnx, skip this step.
 
 	./ncnnoptimize mobilenet.param mobilenet.bin mobilenet-opt.param mobilenet-opt.bin 0
 
-8、Create the calibration table file(可选择官方quantized-int8-inference.md提供的多种方式)
+8、Create the calibration table file(You can choose from the various methods provided in the official quantized-int8-inference.md document.)
 ---------------------------------------
-我选择来自图像，官方建议使用验证数据集进行校准，我是使用PC上存放的数据验证集上的300左右图像传输到ubuntu虚拟机上，
-并在build-x86文件夹上创建Images文件夹来存放，
-	//建议使用相对路径
+I chose from the images. The official recommendation is to use the validation dataset for calibration. I transferred about 300 images from the data validation set stored on my PC to the Ubuntu virtual machine.
+And create an "Images" folder in the "build-x86" folder to store it.
+	//It is recommended to use relative paths.
 	
 	find $(pwd)/images -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) > imagelist.txt
 	tools/quantize/ncnn2table yolo11n_pnnx.py.ncnn.param yolo11n_pnnx.py.ncnn.bin imagelist.txt yolo11n.table mean=[0,0,0] norm=[0.00392157,0.00392157,0.00392157] shape=[640,640,3] pixel=RGB thread=3 method=kl
 
-ncnn官网量化INT8的工具操作步骤说明：
+Explanation of the operation steps for quantizing INT8 on the NCNN website：
 
-*平均值和范数是你传递到的值Mat::substract_mean_normalize()
+*mean and norm are the values you passed to Mat::substract_mean_normalize()
 
-*形状是你模型的斑点形状，[w，h] 或 [w，h，c]
+*shape is the blob shape of your model, [w,h] or [w,h,c]
 
 	* if w and h both are given, image will be resized to exactly size.
 	
@@ -382,43 +377,43 @@ ncnn官网量化INT8的工具操作步骤说明：
 	
 	* if only w is zero or negative, image's height will scaled resize to h
 	
-*像素是你模型的像素格式，图像像素会先转换成这种类型Extractor::input()
+*pixel is the pixel format of your model, image pixels will be converted to this type before Extractor::input()
 
-*线程是可用于并行推理的CPU线程数
+*thread is the CPU thread count that could be used for parallel inference
 
-*方法是训练后量化算法，目前支持 KL 和 ACIQ
+*method is the post training quantization algorithm, kl and aciq are currently supported
 
-指令中mean和norm的参数值是通过AI提供的，shape参数是根据我训练yolo11模型时候设置的imgsz=640对齐，pixel参数也是AI推荐设置的
+The parameter values of "mean" and "norm" in the instruction are provided by AI. The "shape" parameter is aligned according to the "imgsz=640" setting I used when training the YOLO11 model. The "pixel" parameter is also recommended by AI for setting.
 
-9、Quantize model(还有更多设置参考官方quantized-int8-inference.md)
+9、Quantize model(There are more settings to refer to in the official document "quantized-int8-inference.md".)
 ---------------------------------------
 	tools/quantize/ncnn2int8 yolo11n_pnnx.py.ncnn.param yolo11n_pnnx.py.ncnn.bin yolo11n-int8.param yolo11n-int8.bin yolo11n.table
 
-10、在ubuntu虚拟机中修改官方yolo11.cpp源文件
+10、Modify the official yolo11.cpp source file in the Ubuntu virtual machine
 ---------------------------------------
-通过打开ncnn/
-可以手动关闭使用vulkan加速，通过AI查询全志H616芯片得知不支持，同时我自己测试了是失败的，
-这里有关这个问题的讨论：https://github.com/Tencent/ncnn/issues/6684，
+By opening ncnn/
+It is possible to manually disable the use of Vulkan acceleration. According to the AI query of the Zhi H616 chip, it is known that it does not support this feature. Additionally, I have personally tested it and found that it failed.
+Here is the discussion about this issue: https://github.com/Tencent/ncnn/issues/6684
 	
 	yolo11.opt.use_vulkan_compute = false;
-修改目标尺寸大小，因为上面设置了动态调整图像输入大小，目标尺寸越小，计算量就越少
+Modify the target size, as dynamic adjustment of the image input size has been set above. The smaller the target size, the less computational effort is required.
 
-	const int target_size = (640或416或320);
-修改识别类型名称，可以根据数据集的yaml文件的names进行匹配修改
+	const int target_size = (640 or 416 or 320);
+Modify the type name of the identification. It can be updated by matching and modifying according to the "names" in the yaml file of the dataset.
 
 	static const char* class_names[] = {}
 
-修改文件内导入文件命名，也可以单独修改文件命名
+Modify the names of imported files within the document. You can also modify the file names individually.
 
 	yolo11.load_param("yolo11n-int8.param");
 	yolo11.load_model("yolo11n-int8.bin");
 
-11、部署开发板上测试
+11、Conduct tests on the development board
 ---------------------------------------
-确保PC端传输yolo11n-int8.param和yolo11n-int8.bin与ubuntu虚拟机传输的yolo11可执行文件到开发板自定义同一路径下，
-同时该路径需要一张图像作为yolo11可执行文件参数作为输入
-已下是通过time指令来简单多次测试观察单次运行，分别以640x640、416x416、320x320的图像输入
-平均需要多少时间：
+Make sure that the .param and .bin files transferred from the PC end and the yolo11 executable file transferred from the Ubuntu virtual machine are placed in the same directory on the development board.
+At the same time, this path requires an image as an input parameter for the yolo11 executable file.
+The following is a simple multiple test observation of a single run using the "time" command. The input images are respectively 640x640, 416x416, and 320x320.
+On average, how much time is required：
 
 	orangepi@orangepizero2:~/Downloads/drink_demo$ time ./yolo11_640int8 640.jpeg
 	3 = 0.94687 at 0.29 323.84 83.07 x 304.48
